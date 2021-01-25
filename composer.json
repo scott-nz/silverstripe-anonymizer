@@ -1,0 +1,24 @@
+{
+    "name": "scott-nz/silverstripe-anonymizer",
+    "description": "Anonymize your database through YAML file configuration",
+    "type": "silverstripe-module",
+    "keywords": ["silverstripe", "yaml"],
+    "license": "MIT",
+    "authors": [{
+        "name": "Scott Sutherland",
+        "email": "ssutherland@silverstripe.com"
+    }],
+    "require": {
+        "silverstripe/framework": "^3@stable"
+    },
+    "require-dev": {
+        "phpunit/PHPUnit": "~4.8"
+    },
+    "autoload": {
+        "psr-4": {
+            "ScottNZ\\Anonymize\\": "code/",
+            "ScottNZ\\Anonymize\\Tests\\": "tests/php/"
+        }
+    },
+    "minimum-stability": "dev"
+}
