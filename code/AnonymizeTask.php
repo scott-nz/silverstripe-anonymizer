@@ -1,8 +1,5 @@
 <?php
 
-/**
- * @package populate
- */
 class AnonymizeTask extends BuildTask
 {
 

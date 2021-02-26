@@ -1,0 +1,22 @@
+Tables:
+  Member:
+    Columns:
+      EmailFields:
+        - Email
+      StringFields:
+        - FirstName
+        - Surname
+    Exclude:
+      FirstName:
+        - "Default Admin"
+      Email:
+        - "dont@anonymize.me"
+    CustomFunctions:
+      Email:
+        FunctionName: "singleEmailAddress"
+        Variables:
+          Mailbox: "anon"
+Settings:
+  EmailField:
+    Domain: "anonymize.me"
+
