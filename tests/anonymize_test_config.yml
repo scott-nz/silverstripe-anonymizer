@@ -1,0 +1,18 @@
+Tables:
+  AnonymizeTestClass:
+    Columns:
+      EmailFields:
+        - Email
+      StringFields:
+        - StringField
+      NullFields:
+        - NullableStringField
+    CustomFunctions:
+      NumberString:
+        FunctionName: "generateRandomNumberString"
+        Variables:
+          Length: 9
+Settings:
+  EmailField:
+    Domain: "anonymize.me"
+

@@ -8,7 +8,7 @@ class Anonymize extends SS_Object
      *
      * @var array
      */
-    private static $include_yaml_fixtures = [];
+    private static $anonymize_config = [];
 
     private $default_yml_fixture = ['silverstripe-anonymizer/_config/default_anonymize.yml'];
 
@@ -45,9 +45,12 @@ class Anonymize extends SS_Object
         if (!(Director::isDev() || Director::isTest())) {
             throw new \Exception('anonymizeRecords can only be run in development or test environments');
         }
-        $fixtureFiles = self::config()->get('include_yaml_fixtures');
-        if (empty($fixtureFiles)) {
+        $fixtureFiles = self::config()->get('anonymize_config');
+        if (empty($fixtureFiles) ) {
             $fixtureFiles = $this->default_yml_fixture;
+        }
+        if (!is_array($fixtureFiles)) {
+            $fixtureFiles = [$fixtureFiles];
         }
         foreach ($fixtureFiles as $fixtureFile) {
             $fixture = new YamlFixture($fixtureFile);
@@ -81,7 +84,8 @@ class Anonymize extends SS_Object
                 foreach ($this->column_types as $columnType => $columnFunction) {
                     if (isset($config['Columns'][$columnType])) {
                         if (isset($config['CustomFunctions'])) {
-                            $columns = $this->filterCustomFunctions($config['Columns'][$columnType], $config['CustomFunctions']);
+                            $columns = $this->filterCustomFunctions($config['Columns'][$columnType],
+                                $config['CustomFunctions']);
                         }
                         $set = array_merge($set, $this->$columnFunction($columns));
                     }
@@ -224,7 +228,8 @@ class Anonymize extends SS_Object
     {
         foreach ($columnArr as $index => $column) {
             if (isset($customFunctions[$column])) {
-                self::log(sprintf("Column '%s' has a custom function set, removing from default column type functionality.", $column));
+                self::log(sprintf("Column '%s' has a custom function set, removing from default column type functionality.",
+                    $column));
                 unset($columnArr[$index]);
             }
         }
@@ -283,7 +288,7 @@ class Anonymize extends SS_Object
         // Let's hide the logs when running tests
         if (!SapphireTest::is_running_test()) {
             if ($indent > 0) {
-                for($i = 0; $i < $indent; $i++) {
+                for ($i = 0; $i < $indent; $i++) {
                     echo Director::is_cli() ? '-' : '&nbsp;&nbsp;';
                 }
             }
