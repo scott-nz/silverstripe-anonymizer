@@ -2,17 +2,10 @@
 
 class Anonymize extends SS_Object
 {
-
-    /**
-     * @config
-     *
-     * @var array
-     */
     private static $anonymize_config = [];
 
     private $default_yml_fixture = ['silverstripe-anonymizer/_config/default_anonymize.yml'];
-
-
+    
     /**
      * @var array
      */
@@ -76,11 +69,10 @@ class Anonymize extends SS_Object
         self::log(sprintf("Anonymizing table '%s'.", $table));
         $object = Injector::inst()->get($table);
         if ($object) {
+            $query = sprintf("UPDATE `%s` SET", $table);
+            $set = [];
             if (isset($config['Columns']) && $this->hasValidFields($object, $config)) {
                 self::log(sprintf("Anonymize settings for '%s' are valid.", $table), 1);
-                $query = sprintf("UPDATE `%s` SET", $table);
-                $set = [];
-
                 foreach ($this->column_types as $columnType => $columnFunction) {
                     if (isset($config['Columns'][$columnType])) {
                         if (isset($config['CustomFunctions'])) {
@@ -92,19 +84,20 @@ class Anonymize extends SS_Object
                         $set = array_merge($set, $this->$columnFunction($columns));
                     }
                 }
-
-                foreach ($config['CustomFunctions'] as $fieldName => $functionDetails) {
-                    self::log(sprintf("Custom function is configured for '%s' field.", $fieldName), 1);
-                    if (
-                        isset($functionDetails['FunctionName']) &&
-                        method_exists($this, $functionDetails['FunctionName'])
-                    ) {
-                        $functionName = $functionDetails['FunctionName'];
-                        $variables = isset($functionDetails['Variables']) ? $functionDetails['Variables'] : [];
-                        $set[] = $this->$functionName($fieldName, $variables);
-                    }
+            }
+            foreach ($config['CustomFunctions'] as $fieldName => $functionDetails) {
+                self::log(sprintf("Custom function is configured for '%s' field.", $fieldName), 1);
+                if (
+                    isset($functionDetails['FunctionName']) &&
+                    $this->hasMethod($functionDetails['FunctionName'])
+                ) {
+                    $functionName = $functionDetails['FunctionName'];
+                    $variables = isset($functionDetails['Variables']) ? $functionDetails['Variables'] : [];
+                    $set[] = $this->$functionName($fieldName, $variables);
                 }
+            }
 
+            if ($set) {
                 $query .= implode(', ', $set);
 
                 if (isset($config['Exclude'])) {
@@ -124,6 +117,8 @@ class Anonymize extends SS_Object
                 self::log(sprintf("Executing query to anonymize '%s'", $table), 2);
 
                 $result = DB::query($query);
+            } else {
+                self::log(sprintf("Config settings for '%s' will result in no changes, SQL execution skipped", $table), 2);
             }
         } else {
             self::log(sprintf("'%s' is not a valid Object for this project.", $table));
