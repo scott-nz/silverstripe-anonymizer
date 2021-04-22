@@ -1,0 +1,33 @@
+Member:
+  member1:
+    ID: 1
+    Email: originalmember1@email.com
+    FirstName: OriginalFirstName1
+    Surname: OriginalSurname1
+  member2:
+    ID: 3
+    Email: originalmember2@email.com
+    FirstName: OriginalFirstName2
+    Surname: OriginalSurname2
+  member3:
+    ID: 3
+    Email: originalmember3@email.com
+    FirstName: OriginalFirstName3
+    Surname: OriginalSurname3
+  default-admin:
+    ID: 4
+    Email: originalmember4@email.com
+    FirstName: "Default Admin"
+    Surname: OriginalSurname4
+  exclude-by-email:
+    ID: 5
+    Email: dont@anonymize.me
+    FirstName: OriginalFirstName5
+    Surname: OriginalSurname5
+AnonymizeTestClass:
+  record1:
+    Email: originalmember1@email.com
+    StringField: OriginalStringField1
+    NullableStringField: OriginalNullableStringField
+    NumberString: 88888888
+    FieldThatWontBeChanged: DontChangeMe
