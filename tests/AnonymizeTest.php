@@ -15,7 +15,7 @@ class AnonymizeTest extends SapphireTest
     {
         $anonymize = Injector::inst()->get(Anonymize::class);
         //Member ID 4 is created as the admin member, we don't want to check this record
-        $members = Member::get()->byIDs([1,2,3]);
+        $members = Member::get()->byIDs([1, 2, 3]);
         foreach ($members as $member) {
             $this->assertEquals('OriginalFirstName' . $member->ID, $member->FirstName);
             $this->assertEquals('OriginalSurname' . $member->ID, $member->Surname);
@@ -24,7 +24,7 @@ class AnonymizeTest extends SapphireTest
         $excludedByEmail = Member::get()->byID(4);
         $anonymize->anonymizeRecords();
 
-        $members = Member::get()->byIDs([1,2,3]);
+        $members = Member::get()->byIDs([1, 2, 3]);
         foreach ($members as $member) {
             $this->assertEquals('FirstName' . $member->ID, $member->FirstName);
             $this->assertEquals('Surname' . $member->ID, $member->Surname);
@@ -73,6 +73,5 @@ class AnonymizeTest extends SapphireTest
         $this->assertNotEquals('88888888', $record1->NumberString);
         $this->assertEquals('9', strlen($record1->NumberString));
         $this->assertEquals('DontChangeMe', $record1->FieldThatWontBeChanged);
-
     }
 }

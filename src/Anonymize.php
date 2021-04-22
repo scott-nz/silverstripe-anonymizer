@@ -46,7 +46,7 @@ class Anonymize extends SS_Object
             throw new \Exception('anonymizeRecords can only be run in development or test environments');
         }
         $fixtureFiles = self::config()->get('anonymize_config');
-        if (empty($fixtureFiles) ) {
+        if (empty($fixtureFiles)) {
             $fixtureFiles = $this->default_yml_fixture;
         }
         if (!is_array($fixtureFiles)) {
@@ -84,8 +84,10 @@ class Anonymize extends SS_Object
                 foreach ($this->column_types as $columnType => $columnFunction) {
                     if (isset($config['Columns'][$columnType])) {
                         if (isset($config['CustomFunctions'])) {
-                            $columns = $this->filterCustomFunctions($config['Columns'][$columnType],
-                                $config['CustomFunctions']);
+                            $columns = $this->filterCustomFunctions(
+                                $config['Columns'][$columnType],
+                                $config['CustomFunctions']
+                            );
                         }
                         $set = array_merge($set, $this->$columnFunction($columns));
                     }
@@ -93,8 +95,10 @@ class Anonymize extends SS_Object
 
                 foreach ($config['CustomFunctions'] as $fieldName => $functionDetails) {
                     self::log(sprintf("Custom function is configured for '%s' field.", $fieldName), 1);
-                    if (isset ($functionDetails['FunctionName']) && method_exists($this,
-                            $functionDetails['FunctionName'])) {
+                    if (
+                        isset($functionDetails['FunctionName']) &&
+                        method_exists($this, $functionDetails['FunctionName'])
+                    ) {
                         $functionName = $functionDetails['FunctionName'];
                         $variables = isset($functionDetails['Variables']) ? $functionDetails['Variables'] : [];
                         $set[] = $this->$functionName($fieldName, $variables);
@@ -197,7 +201,8 @@ class Anonymize extends SS_Object
             $mailbox,
             strtolower($column),
             'ID',
-            $domain);
+            $domain
+        );
     }
 
     private function generateRandomNumberString($column, $functionVariables): string
@@ -228,8 +233,12 @@ class Anonymize extends SS_Object
     {
         foreach ($columnArr as $index => $column) {
             if (isset($customFunctions[$column])) {
-                self::log(sprintf("Column '%s' has a custom function set, removing from default column type functionality.",
-                    $column));
+                self::log(
+                    sprintf(
+                        "Column '%s' has a custom function set, removing from default column type functionality.",
+                        $column
+                    )
+                );
                 unset($columnArr[$index]);
             }
         }
@@ -278,8 +287,6 @@ class Anonymize extends SS_Object
                 }
             }
         }
-
-
         return true;
     }
 
