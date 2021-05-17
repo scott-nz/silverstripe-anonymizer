@@ -7,11 +7,12 @@ Tables:
         - StringField
       NullFields:
         - NullableStringField
-    CustomFunctions:
-      NumberString:
-        FunctionName: "generateRandomNumberString"
-        Variables:
-          Length: 9
+    CustomFieldFunctions:
+      Column:
+        NumberString:
+          FunctionName: "generateRandomNumberString"
+          Variables:
+            Length: 9
 Settings:
   EmailField:
     Domain: "anonymize.me"

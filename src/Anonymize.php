@@ -2,10 +2,17 @@
 
 class Anonymize extends SS_Object
 {
+
+    /**
+     * @config
+     *
+     * @var array
+     */
     private static $anonymize_config = [];
 
     private $default_yml_fixture = ['silverstripe-anonymizer/_config/default_anonymize.yml'];
-    
+
+
     /**
      * @var array
      */
@@ -45,6 +52,7 @@ class Anonymize extends SS_Object
         if (!is_array($fixtureFiles)) {
             $fixtureFiles = [$fixtureFiles];
         }
+
         foreach ($fixtureFiles as $fixtureFile) {
             $fixture = new YamlFixture($fixtureFile);
             self::log(
@@ -73,53 +81,75 @@ class Anonymize extends SS_Object
             $set = [];
             if (isset($config['Columns']) && $this->hasValidFields($object, $config)) {
                 self::log(sprintf("Anonymize settings for '%s' are valid.", $table), 1);
+
                 foreach ($this->column_types as $columnType => $columnFunction) {
                     if (isset($config['Columns'][$columnType])) {
-                        if (isset($config['CustomFunctions'])) {
-                            $columns = $this->filterCustomFunctions(
+                        if (isset($config['CustomFieldFunctions']) && isset($config['CustomFieldFunctions']['Column'])) {
+                            $columns = $this->filterCustomColumnFunctions(
                                 $config['Columns'][$columnType],
-                                $config['CustomFunctions']
+                                $config['CustomFieldFunctions']['Column']
                             );
+                            $set = array_merge($set, $this->$columnFunction($columns));
                         }
-                        $set = array_merge($set, $this->$columnFunction($columns));
                     }
                 }
             }
-            foreach ($config['CustomFunctions'] as $fieldName => $functionDetails) {
-                self::log(sprintf("Custom function is configured for '%s' field.", $fieldName), 1);
-                if (
-                    isset($functionDetails['FunctionName']) &&
-                    $this->hasMethod($functionDetails['FunctionName'])
-                ) {
-                    $functionName = $functionDetails['FunctionName'];
-                    $variables = isset($functionDetails['Variables']) ? $functionDetails['Variables'] : [];
-                    $set[] = $this->$functionName($fieldName, $variables);
+            if (isset($config['CustomFieldFunctions']) && isset($config['CustomFieldFunctions']['Column'])) {
+                foreach ($config['CustomFieldFunctions']['Column'] as $fieldName => $functionDetails) {
+                    self::log(sprintf("Custom column function is configured for '%s' field.", $fieldName), 1);
+                    if (
+                        isset($functionDetails['FunctionName']) &&
+                        $this->hasMethod($functionDetails['FunctionName'])
+                    ) {
+                        $functionName = $functionDetails['FunctionName'];
+                        $variables = isset($functionDetails['Variables']) ? $functionDetails['Variables'] : [];
+                        $set[] = $this->$functionName($fieldName, $variables);
+                    }
                 }
             }
 
             if ($set) {
                 $query .= implode(', ', $set);
-
+                $where = [];
                 if (isset($config['Exclude'])) {
                     self::log(sprintf("Settings exist to exclude certain records from being anonymized"), 1);
-                    $query .= ' WHERE ';
                     foreach ($config['Exclude'] as $excludeColumn => $excludeVals) {
                         $excludeVals = implode('\',\'', $excludeVals);
                         self::log(sprintf("Excluding records where '%s' in ['%s']", $excludeColumn, $excludeVals), 2);
-                        $query .= sprintf(
-                            "%s NOT IN ('%s') AND ",
+                        $where[] = sprintf(
+                            "%s NOT IN ('%s')",
                             $excludeColumn,
                             $excludeVals
                         );
                     }
-                    $query = substr($query, 0, -4);
                 }
+
+                if (isset($config['CustomFieldFunctions']) && isset($config['CustomFieldFunctions']['Exclude'])) {
+                    foreach ($config['CustomFieldFunctions']['Exclude'] as $fieldName => $functionDetails) {
+                        self::log(sprintf("Custom exclude function is configured on '%s' field.", $fieldName), 1);
+                        if (
+                            isset($functionDetails['FunctionName']) &&
+                            $this->hasMethod($functionDetails['FunctionName'])
+                        ) {
+                            $functionName = $functionDetails['FunctionName'];
+                            $variables = isset($functionDetails['Variables']) ? $functionDetails['Variables'] : [];
+                            $where[] = $this->$functionName($fieldName, $variables);
+                        }
+                    }
+                }
+                    if ($where) {
+                        $query .= " WHERE " . implode(' AND ', $where);
+                    }
+
                 self::log(sprintf("Executing query to anonymize '%s'", $table), 2);
 
                 $result = DB::query($query);
             } else {
-                self::log(sprintf("Config settings for '%s' will result in no changes, SQL execution skipped", $table), 2);
+                self::log(sprintf("Config settings for '%s' will result in no changes, SQL execution skipped", $table),
+                    2);
             }
+
+
         } else {
             self::log(sprintf("'%s' is not a valid Object for this project.", $table));
         }
@@ -224,10 +254,17 @@ class Anonymize extends SS_Object
         );
     }
 
-    private function filterCustomFunctions($columnArr, $customFunctions): array
+    private function excludeAdministrators($column, $functionVariables): string
+    {
+        $admins = Group::get()->filter(['Code' => 'administrators'])->first();
+        $members = $admins->Members()->Column('ID');
+        return sprintf(" %s NOT IN [%s]", $column, implode(',',$members));
+    }
+
+    private function filterCustomColumnFunctions($columnArr, $CustomColumnFunctions): array
     {
         foreach ($columnArr as $index => $column) {
-            if (isset($customFunctions[$column])) {
+            if (isset($CustomColumnFunctions[$column])) {
                 self::log(
                     sprintf(
                         "Column '%s' has a custom function set, removing from default column type functionality.",
@@ -268,8 +305,8 @@ class Anonymize extends SS_Object
             }
         }
 
-        if (isset($tableConfig['CustomFunctions'])) {
-            foreach ($tableConfig['CustomFunctions'] as $column => $settings) {
+        if (isset($tableConfig['CustomColumnFunctions'])) {
+            foreach ($tableConfig['CustomColumnFunctions'] as $column => $settings) {
                 if (!$object->hasField($column)) {
                     self::log(
                         sprintf(

@@ -11,11 +11,15 @@ Tables:
         - "Default Admin"
       Email:
         - "dont@anonymize.me"
-    CustomFunctions:
-      Email:
-        FunctionName: "singleEmailAddress"
-        Variables:
-          Mailbox: "anon"
+    CustomFieldFunctions:
+      Column:
+        Email:
+          FunctionName: "singleEmailAddress"
+          Variables:
+            Mailbox: "anon"
+      Exclude:
+        ID:
+          FunctionName: "excludeAdministrators"
 Settings:
   EmailField:
     Domain: "anonymize.me"
