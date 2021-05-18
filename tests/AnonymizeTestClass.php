@@ -1,5 +1,9 @@
 <?php
 
+namespace ScottNZ\Anonymizer\Tests;
+
+use SilverStripe\ORM\DataObject;
+
 class AnonymizeTestClass extends DataObject
 {
     private static $db = [

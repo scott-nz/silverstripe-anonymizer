@@ -1,5 +1,11 @@
 <?php
 
+namespace ScottNZ\Anonymizer\Tasks;
+
+use ScottNZ\Anonymizer\Objects\Anonymize;
+use SilverStripe\Core\Injector\Injector;
+use SilverStripe\Dev\BuildTask;
+
 class AnonymizeTask extends BuildTask
 {
 

@@ -1,6 +1,16 @@
 <?php
+namespace ScottNZ\Anonymizer\Objects;
+use SilverStripe\Control\Director;
+use SilverStripe\Core\Injector\Injector;
+use SilverStripe\Dev\SapphireTest;
+use SilverStripe\Dev\YamlFixture;
+use SilverStripe\ORM\Connect\DatabaseException;
+use SilverStripe\ORM\DataObject;
+use SilverStripe\ORM\DB;
+use SilverStripe\Security\Group;
+use Symfony\Component\Yaml\Parser;
 
-class Anonymize extends SS_Object
+class Anonymize extends DataObject
 {
 
     /**
@@ -13,7 +23,7 @@ class Anonymize extends SS_Object
     /**
      * @var string[]
      */
-    private $default_yml_fixture = ['silverstripe-anonymizer/_config/default_anonymize.yml'];
+    private $default_yml_fixture = ['vendor/scott-nz/silverstripe-anonymizer/_config/default_anonymize.yml'];
 
 
     /**
@@ -61,8 +71,9 @@ class Anonymize extends SS_Object
                 sprintf("Using yml fixture file loaded from '%s'.", $fixtureFile)
             );
             self::log("------------------------", 0);
-            $parser = new Spyc();
-            $anonymizeConfig = $parser->loadFile($fixture->getFixtureFile());
+            $fixture->getFixtureString();
+            $parser = new Parser();
+            $anonymizeConfig = $parser->parseFile($fixture->getFixtureFile());
             $this->dataObjects = $anonymizeConfig['DataObjects'] ?? [];
             $this->settings = $anonymizeConfig['Settings'] ?? [];
 
@@ -151,7 +162,7 @@ class Anonymize extends SS_Object
 
                 try {
                     $result = DB::query($query);
-                } catch (SS_DatabaseException $e) {
+                } catch (DatabaseException $e) {
                     self::log(sprintf("SQL ERROR: unable to execute anonymize query on  '%s'", $table), 0);
                 }
             } else {
@@ -363,14 +374,11 @@ class Anonymize extends SS_Object
      */
     protected static function log(string $msg, int $indent = 0)
     {
-        // Let's hide the logs when running tests
-        if (!SapphireTest::is_running_test()) {
-            if ($indent > 0) {
-                for ($i = 0; $i < $indent; $i++) {
-                    echo Director::is_cli() ? '--' : '&nbsp;&nbsp;&nbsp;&nbsp;';
-                }
+        if ($indent > 0) {
+            for ($i = 0; $i < $indent; $i++) {
+                echo Director::is_cli() ? '--' : '&nbsp;&nbsp;&nbsp;&nbsp;';
             }
-            echo $msg . (Director::is_cli() ? PHP_EOL : '<br>');
         }
+        echo $msg . (Director::is_cli() ? PHP_EOL : '<br>');
     }
 }

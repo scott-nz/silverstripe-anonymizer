@@ -1,5 +1,12 @@
 <?php
 
+namespace ScottNZ\Anonymizer\Tests;
+
+use ScottNZ\Anonymizer\Objects\Anonymize;
+use SilverStripe\Core\Injector\Injector;
+use SilverStripe\Dev\SapphireTest;
+use SilverStripe\Security\Member;
+
 class AnonymizeTest extends SapphireTest
 {
     protected static $fixture_file = 'anonymize_fixtures.yml';
