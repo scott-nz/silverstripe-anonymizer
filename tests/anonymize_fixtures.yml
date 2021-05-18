@@ -1,3 +1,10 @@
+Group:
+  admin:
+    Title: Administrators
+    Code: administrators
+  content-author:
+    Title: "Content Authors"
+    Code: content-authors
 Member:
   member1:
     ID: 1
@@ -14,6 +21,7 @@ Member:
     Email: originalmember3@email.com
     FirstName: OriginalFirstName3
     Surname: OriginalSurname3
+    Groups: =>Group.content-author
   default-admin:
     ID: 4
     Email: originalmember4@email.com
@@ -24,6 +32,12 @@ Member:
     Email: dont@anonymize.me
     FirstName: OriginalFirstName5
     Surname: OriginalSurname5
+  excluded-by-group:
+    ID: 6
+    Email: exclude@me.please
+    FirstName: OriginalFirstName6
+    Surname: OriginalSurname6
+    Groups: =>Group.admin
 AnonymizeTestClass:
   record1:
     Email: originalmember1@email.com

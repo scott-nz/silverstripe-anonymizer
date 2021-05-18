@@ -10,13 +10,16 @@ class Anonymize extends SS_Object
      */
     private static $anonymize_config = [];
 
+    /**
+     * @var string[]
+     */
     private $default_yml_fixture = ['silverstripe-anonymizer/_config/default_anonymize.yml'];
 
 
     /**
      * @var array
      */
-    private $tables = [];
+    private $dataObjects = [];
 
     /**
      * @var array
@@ -36,9 +39,8 @@ class Anonymize extends SS_Object
     ];
 
     /**
+     * @return bool
      * @throws Exception
-     * @var bool
-     *
      */
     public function anonymizeRecords(): bool
     {
@@ -61,22 +63,23 @@ class Anonymize extends SS_Object
             self::log("------------------------", 0);
             $parser = new Spyc();
             $anonymizeConfig = $parser->loadFile($fixture->getFixtureFile());
-            $this->tables = isset($anonymizeConfig['Tables']) ? $anonymizeConfig['Tables'] : [];
-            $this->settings = isset($anonymizeConfig['Settings']) ? $anonymizeConfig['Settings'] : [];
+            $this->dataObjects = $anonymizeConfig['DataObjects'] ?? [];
+            $this->settings = $anonymizeConfig['Settings'] ?? [];
 
-            foreach ($this->tables as $tableName => $tableConfig) {
-                $this->anonymizeTableRecords($tableName, $tableConfig);
+            foreach ($this->dataObjects as $tableName => $tableConfig) {
+                $this->anonymizeDataObjectRecords($tableName, $tableConfig);
             }
             $fixture = null;
         }
         return true;
     }
 
-    private function anonymizeTableRecords($table, $config)
+    private function anonymizeDataObjectRecords(string $objectName, array $config)
     {
-        self::log(sprintf("Anonymizing table '%s'.", $table));
-        $object = Injector::inst()->get($table);
+        self::log(sprintf("Anonymizing DataObject '%s'.", $objectName));
+        $object = Injector::inst()->get($objectName);
         if ($object) {
+            $table = $object->baseTable();
             $query = sprintf("UPDATE `%s` SET", $table);
             $set = [];
             if (isset($config['Columns']) && $this->hasValidFields($object, $config)) {
@@ -84,7 +87,10 @@ class Anonymize extends SS_Object
 
                 foreach ($this->column_types as $columnType => $columnFunction) {
                     if (isset($config['Columns'][$columnType])) {
-                        if (isset($config['CustomFieldFunctions']) && isset($config['CustomFieldFunctions']['Column'])) {
+                        if (
+                            isset($config['CustomFieldFunctions'])
+                            && isset($config['CustomFieldFunctions']['Column'])
+                        ) {
                             $columns = $this->filterCustomColumnFunctions(
                                 $config['Columns'][$columnType],
                                 $config['CustomFieldFunctions']['Column']
@@ -137,34 +143,40 @@ class Anonymize extends SS_Object
                         }
                     }
                 }
-                    if ($where) {
-                        $query .= " WHERE " . implode(' AND ', $where);
-                    }
+                if ($where) {
+                    $query .= " WHERE " . implode(' AND ', $where);
+                }
 
                 self::log(sprintf("Executing query to anonymize '%s'", $table), 2);
 
-                $result = DB::query($query);
+                try {
+                    $result = DB::query($query);
+                } catch (SS_DatabaseException $e) {
+                    self::log(sprintf("SQL ERROR: unable to execute anonymize query on  '%s'", $table), 0);
+                }
             } else {
-                self::log(sprintf("Config settings for '%s' will result in no changes, SQL execution skipped", $table),
-                    2);
+                self::log(
+                    sprintf("Config settings for '%s' will result in no changes, SQL execution skipped", $table),
+                    2
+                );
             }
-
-
         } else {
-            self::log(sprintf("'%s' is not a valid Object for this project.", $table));
+            self::log(sprintf("'%s' is not a valid Object for this project.", $objectName));
         }
         self::log("------------------------", 0);
     }
 
     /**
-     * @param $stringArr
+     * @param array $stringArr
      * @return array
      */
-    private function anonymizeStringColumns($stringArr): array
+    private function anonymizeStringColumns(array $stringArr): array
     {
         $setString = [];
+        self::log("Anonymizing the following String columns:", 2);
+
         foreach ($stringArr as $column) {
-            self::log(sprintf("Anonymizing '%s' String column", $column), 2);
+            self::log($column, 3);
             $setString[] = sprintf(" %s = CONCAT('%s',%s)", $column, $column, 'ID');
         }
         return $setString;
@@ -177,10 +189,10 @@ class Anonymize extends SS_Object
      * emails may be sent to these non-existent emails.
      * Recommend using the custom function `singleEmailAddress` as provided, see readme for example setup.
      *
-     * @param $stringArr
+     * @param array $stringArr
      * @return array
      */
-    private function anonymizeEmailColumns($stringArr): array
+    private function anonymizeEmailColumns(array $stringArr): array
     {
         $setString = [];
         $domain = $this->settings['EmailField']['Domain'] ?: 'anonymize.anon';
@@ -194,14 +206,17 @@ class Anonymize extends SS_Object
     /**
      * set all 'Null' field values to NULL
      *
-     * @param $stringArr
+     * @param array $stringArr
      * @return array
      */
-    private function setNullColumns($stringArr): array
+    private function setNullColumns(array $stringArr): array
     {
         $setString = [];
+        self::log("Setting the following columns to NULL:", 2);
+
         foreach ($stringArr as $column) {
-            self::log(sprintf("Setting '%s' column value to NULL", $column), 2);
+            self::log($column, 3);
+
             $setString[] = sprintf(" %s = NULL", $column);
         }
         return $setString;
@@ -211,11 +226,11 @@ class Anonymize extends SS_Object
      * sets all email addresses to a single mailbox.
      * uses the + character in the email address so that testers can still differentiate between Member accounts
      *
-     * @param $column
-     * @param $functionVariables
+     * @param string $column
+     * @param array $functionVariables
      * @return string
      */
-    private function singleEmailAddress($column, $functionVariables): string
+    private function singleEmailAddress(string $column, array $functionVariables): string
     {
         $mailbox = $functionVariables['Mailbox'] ?: 'no-reply';
         $domain = $this->settings['EmailField']['Domain'] ?: 'anonymize.anon';
@@ -230,9 +245,14 @@ class Anonymize extends SS_Object
         );
     }
 
-    private function generateRandomNumberString($column, $functionVariables): string
+    /**
+     * @param string $column
+     * @param array $functionVariables
+     * @return string
+     */
+    private function generateRandomNumberString(string $column, array $functionVariables): string
     {
-        $length = isset($functionVariables['Length']) ? $functionVariables['Length'] : 9;
+        $length = $functionVariables['Length'] ?? 9;
 
         /*
          * build the min and max numbers to be used by the SQL function to generate a random phone number
@@ -254,14 +274,24 @@ class Anonymize extends SS_Object
         );
     }
 
-    private function excludeAdministrators($column, $functionVariables): string
+    /**
+     * @param string $column
+     * @param array $functionVariables
+     * @return string
+     */
+    private function excludeAdministrators(string $column, array $functionVariables): string
     {
         $admins = Group::get()->filter(['Code' => 'administrators'])->first();
         $members = $admins->Members()->Column('ID');
-        return sprintf(" %s NOT IN [%s]", $column, implode(',',$members));
+        return sprintf(" %s NOT IN (%s)", $column, implode(',', $members));
     }
 
-    private function filterCustomColumnFunctions($columnArr, $CustomColumnFunctions): array
+    /**
+     * @param array $columnArr
+     * @param array $CustomColumnFunctions
+     * @return array
+     */
+    private function filterCustomColumnFunctions(array $columnArr, array $CustomColumnFunctions): array
     {
         foreach ($columnArr as $index => $column) {
             if (isset($CustomColumnFunctions[$column])) {
@@ -277,7 +307,12 @@ class Anonymize extends SS_Object
         return $columnArr;
     }
 
-    private function hasValidFields($object, $tableConfig): bool
+    /**
+     * @param DataObject $object
+     * @param $tableConfig
+     * @return bool
+     */
+    private function hasValidFields(DataObject $object, array $tableConfig): bool
     {
         if (isset($tableConfig['Columns'])) {
             foreach ($tableConfig['Columns'] as $type => $columns) {
@@ -322,13 +357,17 @@ class Anonymize extends SS_Object
         return true;
     }
 
-    protected static function log($msg, $indent = 0)
+    /**
+     * @param string $msg
+     * @param int $indent
+     */
+    protected static function log(string $msg, int $indent = 0)
     {
         // Let's hide the logs when running tests
         if (!SapphireTest::is_running_test()) {
             if ($indent > 0) {
                 for ($i = 0; $i < $indent; $i++) {
-                    echo Director::is_cli() ? '-' : '&nbsp;&nbsp;';
+                    echo Director::is_cli() ? '--' : '&nbsp;&nbsp;&nbsp;&nbsp;';
                 }
             }
             echo $msg . (Director::is_cli() ? PHP_EOL : '<br>');
