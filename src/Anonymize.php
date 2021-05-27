@@ -87,8 +87,7 @@ class Anonymize extends SS_Object
 
                 foreach ($this->column_types as $columnType => $columnFunction) {
                     if (isset($config['Columns'][$columnType])) {
-                        if (
-                            isset($config['CustomFieldFunctions'])
+                        if (isset($config['CustomFieldFunctions'])
                             && isset($config['CustomFieldFunctions']['Column'])
                         ) {
                             $columns = $this->filterCustomColumnFunctions(
@@ -103,8 +102,7 @@ class Anonymize extends SS_Object
             if (isset($config['CustomFieldFunctions']) && isset($config['CustomFieldFunctions']['Column'])) {
                 foreach ($config['CustomFieldFunctions']['Column'] as $fieldName => $functionDetails) {
                     self::log(sprintf("Custom column function is configured for '%s' field.", $fieldName), 1);
-                    if (
-                        isset($functionDetails['FunctionName']) &&
+                    if (isset($functionDetails['FunctionName']) &&
                         $this->hasMethod($functionDetails['FunctionName'])
                     ) {
                         $functionName = $functionDetails['FunctionName'];
@@ -133,8 +131,7 @@ class Anonymize extends SS_Object
                 if (isset($config['CustomFieldFunctions']) && isset($config['CustomFieldFunctions']['Exclude'])) {
                     foreach ($config['CustomFieldFunctions']['Exclude'] as $fieldName => $functionDetails) {
                         self::log(sprintf("Custom exclude function is configured on '%s' field.", $fieldName), 1);
-                        if (
-                            isset($functionDetails['FunctionName']) &&
+                        if (isset($functionDetails['FunctionName']) &&
                             $this->hasMethod($functionDetails['FunctionName'])
                         ) {
                             $functionName = $functionDetails['FunctionName'];

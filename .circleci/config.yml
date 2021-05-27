@@ -47,7 +47,7 @@ jobs:
             - vendor
             - resources
 
-      - run: mv .circleci/.env.circleci .env
+      - run: mv .circleci/_ss_environment.php.circleci _ss_environment.php
       - run: chown -R vagrant:vagrant /var/www/mysite/www
       - run: chmod g+s /var/www/mysite/www
 
@@ -55,7 +55,7 @@ jobs:
       - run: composer silverstripe-standards
 
       # dev/build
-      - run: sudo -u vagrant vendor/bin/sake dev/build flush=1
+      - run: sudo -u vagrant framework/sake dev/build flush=1
 
       # PHP Tests
       - run: vendor/bin/phpunit --verbose
