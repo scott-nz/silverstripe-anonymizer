@@ -18,8 +18,8 @@
     },
     "autoload": {
         "psr-4": {
-            "ScottNZ\\Anonymize\\": "code/",
-            "ScottNZ\\Anonymize\\Tests\\": "tests/php/"
+            "ScottNZ\\Anonymize\\": "src/",
+            "ScottNZ\\Anonymize\\Tests\\": "tests/"
         }
     },
     "scripts": {
