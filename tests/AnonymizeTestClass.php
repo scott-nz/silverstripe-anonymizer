@@ -1,6 +1,6 @@
 <?php
 
-namespace ScottNZ\Anonymizer\Tests;
+namespace ScottNZ\Anonymize\Tests;
 
 use SilverStripe\ORM\DataObject;
 

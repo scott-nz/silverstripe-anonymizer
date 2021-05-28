@@ -1,9 +1,9 @@
 <?php
-namespace ScottNZ\Anonymizer\Objects;
+
+namespace ScottNZ\Anonymize\Objects;
 
 use SilverStripe\Control\Director;
 use SilverStripe\Core\Injector\Injector;
-use SilverStripe\Dev\SapphireTest;
 use SilverStripe\Dev\YamlFixture;
 use SilverStripe\ORM\Connect\DatabaseException;
 use SilverStripe\ORM\DataObject;
@@ -157,7 +157,10 @@ class Anonymize extends DataObject
                         ) {
                             $functionName = $functionDetails['FunctionName'];
                             $variables = isset($functionDetails['Variables']) ? $functionDetails['Variables'] : [];
-                            $where[] = $this->$functionName($fieldName, $variables);
+                            $functionOutput = $this->$functionName($fieldName, $variables);
+                            if ($functionOutput) {
+                                $where[] = $functionOutput;
+                            }
                         }
                     }
                 }
@@ -295,10 +298,21 @@ class Anonymize extends DataObject
     /**
      * @param string $column
      * @param array $functionVariables
-     * @return string
+     * @return string|null
      */
-    private function excludeAdministrators(string $column, array $functionVariables): string
+    private function excludeAdministrators(string $column, array $functionVariables): ?string
     {
+        if ($column !== 'ID') {
+            self::log(
+                sprintf(
+                    "excludeAdministrators function is configured on '%s' column. " .
+                    "This function will do nothing unless it is configured on the `ID` column.",
+                    $column
+                ),
+                1
+            );
+            return null;
+        }
         $admins = Group::get()->filter(['Code' => 'administrators'])->first();
         $members = $admins->Members()->Column('ID');
         return sprintf(" %s NOT IN (%s)", $column, implode(',', $members));

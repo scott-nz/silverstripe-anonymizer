@@ -1,8 +1,8 @@
 <?php
 
-namespace ScottNZ\Anonymizer\Tests;
+namespace ScottNZ\Anonymize\Tests;
 
-use ScottNZ\Anonymizer\Objects\Anonymize;
+use ScottNZ\Anonymize\Objects\Anonymize;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Dev\SapphireTest;
 use SilverStripe\Security\Member;

@@ -1,8 +1,8 @@
 <?php
 
-namespace ScottNZ\Anonymizer\Tasks;
+namespace ScottNZ\Anonymize\Tasks;
 
-use ScottNZ\Anonymizer\Objects\Anonymize;
+use ScottNZ\Anonymize\Objects\Anonymize;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Dev\BuildTask;
 
