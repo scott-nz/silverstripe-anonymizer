@@ -1,5 +1,5 @@
 DataObjects:
-  Member:
+  SilverStripe\Security\Member:
     Columns:
       EmailFields:
         - Email

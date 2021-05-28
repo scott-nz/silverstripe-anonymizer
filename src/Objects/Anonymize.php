@@ -1,6 +1,17 @@
 <?php
 
-class Anonymize extends SS_Object
+namespace ScottNZ\Anonymize\Objects;
+
+use SilverStripe\Control\Director;
+use SilverStripe\Core\Injector\Injector;
+use SilverStripe\Dev\YamlFixture;
+use SilverStripe\ORM\Connect\DatabaseException;
+use SilverStripe\ORM\DataObject;
+use SilverStripe\ORM\DB;
+use SilverStripe\Security\Group;
+use Symfony\Component\Yaml\Parser;
+
+class Anonymize extends DataObject
 {
 
     /**
@@ -13,7 +24,7 @@ class Anonymize extends SS_Object
     /**
      * @var string[]
      */
-    private $default_yml_fixture = ['silverstripe-anonymizer/_config/default_anonymize.yml'];
+    private $default_yml_fixture = ['vendor/scott-nz/silverstripe-anonymizer/_config/default_anonymize.yml'];
 
 
     /**
@@ -61,13 +72,16 @@ class Anonymize extends SS_Object
                 sprintf("Using yml fixture file loaded from '%s'.", $fixtureFile)
             );
             self::log("------------------------", 0);
-            $parser = new Spyc();
-            $anonymizeConfig = $parser->loadFile($fixture->getFixtureFile());
+            $fixture->getFixtureString();
+            $parser = new Parser();
+            $anonymizeConfig = $parser->parseFile($fixture->getFixtureFile());
             $this->dataObjects = $anonymizeConfig['DataObjects'] ?? [];
             $this->settings = $anonymizeConfig['Settings'] ?? [];
 
-            foreach ($this->dataObjects as $tableName => $tableConfig) {
-                $this->anonymizeDataObjectRecords($tableName, $tableConfig);
+            if ($this->customDefinedFunctionsExist()) {
+                foreach ($this->dataObjects as $tableName => $tableConfig) {
+                    $this->anonymizeDataObjectRecords($tableName, $tableConfig);
+                }
             }
             $fixture = null;
         }
@@ -80,6 +94,16 @@ class Anonymize extends SS_Object
         $object = Injector::inst()->get($objectName);
         if ($object) {
             $table = $object->baseTable();
+
+            /*
+             * NOTE: As mentioned in the documentation, the ability to delete records using a custom function exists
+             * however it is highly discouraged and no custom functions are pre bundled with the module.
+             */
+            if (isset($config['CustomDeleteFunction'])) {
+                $deleteFunction = $config['CustomDeleteFunction'];
+                $this->$deleteFunction();
+            }
+
             $query = sprintf("UPDATE `%s` SET", $table);
             $set = [];
             if (isset($config['Columns']) && $this->hasValidFields($object, $config)) {
@@ -87,30 +111,25 @@ class Anonymize extends SS_Object
 
                 foreach ($this->column_types as $columnType => $columnFunction) {
                     if (isset($config['Columns'][$columnType])) {
-                        if (
-                            isset($config['CustomFieldFunctions'])
+                        $columns = $config['Columns'][$columnType];
+                        if (isset($config['CustomFieldFunctions'])
                             && isset($config['CustomFieldFunctions']['Column'])
                         ) {
                             $columns = $this->filterCustomColumnFunctions(
                                 $config['Columns'][$columnType],
                                 $config['CustomFieldFunctions']['Column']
                             );
-                            $set = array_merge($set, $this->$columnFunction($columns));
                         }
+                        $set = array_merge($set, $this->$columnFunction($columns));
                     }
                 }
             }
             if (isset($config['CustomFieldFunctions']) && isset($config['CustomFieldFunctions']['Column'])) {
                 foreach ($config['CustomFieldFunctions']['Column'] as $fieldName => $functionDetails) {
                     self::log(sprintf("Custom column function is configured for '%s' field.", $fieldName), 1);
-                    if (
-                        isset($functionDetails['FunctionName']) &&
-                        $this->hasMethod($functionDetails['FunctionName'])
-                    ) {
-                        $functionName = $functionDetails['FunctionName'];
-                        $variables = isset($functionDetails['Variables']) ? $functionDetails['Variables'] : [];
-                        $set[] = $this->$functionName($fieldName, $variables);
-                    }
+                    $functionName = $functionDetails['FunctionName'];
+                    $variables = isset($functionDetails['Variables']) ? $functionDetails['Variables'] : [];
+                    $set[] = $this->$functionName($fieldName, $variables);
                 }
             }
 
@@ -133,13 +152,15 @@ class Anonymize extends SS_Object
                 if (isset($config['CustomFieldFunctions']) && isset($config['CustomFieldFunctions']['Exclude'])) {
                     foreach ($config['CustomFieldFunctions']['Exclude'] as $fieldName => $functionDetails) {
                         self::log(sprintf("Custom exclude function is configured on '%s' field.", $fieldName), 1);
-                        if (
-                            isset($functionDetails['FunctionName']) &&
+                        if (isset($functionDetails['FunctionName']) &&
                             $this->hasMethod($functionDetails['FunctionName'])
                         ) {
                             $functionName = $functionDetails['FunctionName'];
                             $variables = isset($functionDetails['Variables']) ? $functionDetails['Variables'] : [];
-                            $where[] = $this->$functionName($fieldName, $variables);
+                            $functionOutput = $this->$functionName($fieldName, $variables);
+                            if ($functionOutput) {
+                                $where[] = $functionOutput;
+                            }
                         }
                     }
                 }
@@ -151,7 +172,7 @@ class Anonymize extends SS_Object
 
                 try {
                     $result = DB::query($query);
-                } catch (SS_DatabaseException $e) {
+                } catch (DatabaseException $e) {
                     self::log(sprintf("SQL ERROR: unable to execute anonymize query on  '%s'", $table), 0);
                 }
             } else {
@@ -277,10 +298,21 @@ class Anonymize extends SS_Object
     /**
      * @param string $column
      * @param array $functionVariables
-     * @return string
+     * @return string|null
      */
-    private function excludeAdministrators(string $column, array $functionVariables): string
+    private function excludeAdministrators(string $column, array $functionVariables): ?string
     {
+        if ($column !== 'ID') {
+            self::log(
+                sprintf(
+                    "excludeAdministrators function is configured on '%s' column. " .
+                    "This function will do nothing unless it is configured on the `ID` column.",
+                    $column
+                ),
+                1
+            );
+            return null;
+        }
         $admins = Group::get()->filter(['Code' => 'administrators'])->first();
         $members = $admins->Members()->Column('ID');
         return sprintf(" %s NOT IN (%s)", $column, implode(',', $members));
@@ -358,19 +390,58 @@ class Anonymize extends SS_Object
     }
 
     /**
+     * Checks the yml file to ensure that any custom functions included actually exist.
+     * If a function does not exist an exception is thrown before any data manipulation has occurred.
+     * @return bool
+     * @throws \Exception
+     */
+    private function customDefinedFunctionsExist()
+    {
+        foreach ($this->dataObjects as $tableName => $tableConfig) {
+            if (isset($tableConfig['CustomDeleteFunction'])) {
+                $deleteFunction = $tableConfig['CustomDeleteFunction'];
+                if (!$this->hasMethod($deleteFunction)) {
+                    throw new \Exception(
+                        sprintf(
+                            'incorrect config of a potentially destructive function for `%s`. ' .
+                            'anonymize config has a custom delete function defined but the function does not exist.',
+                            $tableName
+                        )
+                    );
+                }
+            }
+            if (isset($config['CustomFieldFunctions']) && isset($config['CustomFieldFunctions']['Column'])) {
+                foreach ($config['CustomFieldFunctions']['Column'] as $fieldName => $functionDetails) {
+                    if (!isset($functionDetails['FunctionName']) ||
+                        !$this->hasMethod($functionDetails['FunctionName'])
+                    ) {
+                        throw new \Exception(
+                            sprintf(
+                                'incorrect config of a custom column function function for `%s`. ' .
+                                'anonymize config has a custom column function defined for `%s` ' .
+                                'but the function does not exist.',
+                                $tableName,
+                                $config['CustomFieldFunctions']['Column']
+                            )
+                        );
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
      * @param string $msg
      * @param int $indent
      */
     protected static function log(string $msg, int $indent = 0)
     {
-        // Let's hide the logs when running tests
-        if (!SapphireTest::is_running_test()) {
-            if ($indent > 0) {
-                for ($i = 0; $i < $indent; $i++) {
-                    echo Director::is_cli() ? '--' : '&nbsp;&nbsp;&nbsp;&nbsp;';
-                }
+        if ($indent > 0) {
+            for ($i = 0; $i < $indent; $i++) {
+                echo Director::is_cli() ? '--' : '&nbsp;&nbsp;&nbsp;&nbsp;';
             }
-            echo $msg . (Director::is_cli() ? PHP_EOL : '<br>');
         }
+        echo $msg . (Director::is_cli() ? PHP_EOL : '<br>');
     }
 }
