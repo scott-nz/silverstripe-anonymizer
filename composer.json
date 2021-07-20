@@ -26,8 +26,8 @@
         "silverstripe-standards": [
             "@phpcs"
         ],
-        "phpcs": "phpcs src tests --standard=phpcs-ss3.xml --extensions=php --encoding=utf-8",
-        "phpcbf": "phpcbf src tests --standard=phpcs-ss3.xml --extensions=php --encoding=utf-8",
+        "phpcs": "phpcs src --standard=phpcs-ss3.xml --extensions=php --encoding=utf-8",
+        "phpcbf": "phpcbf src --standard=phpcs-ss3.xml --extensions=php --encoding=utf-8",
         "phpcs-fix": "@phpcbf"
     },
     "minimum-stability": "dev",
