@@ -1,5 +1,5 @@
 DataObjects:
-  AnonymizeTestClass:
+  ScottNZ\Anonymize\Tests\AnonymizeTestClass:
     Columns:
       EmailFields:
         - Email
