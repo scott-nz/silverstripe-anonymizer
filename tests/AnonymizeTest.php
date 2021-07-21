@@ -15,7 +15,7 @@ class AnonymizeTest extends SapphireTest
     {
         parent::setUp();
         //ensure that the default anonymize config file is used for testing
-        Anonymize::config()->__set('anonymize_config', null);
+        Anonymize::config()->__set('anonymize_config', '_config/default_anonymize.yml');
     }
 
     public function testAnonymizeRecords()
@@ -72,7 +72,7 @@ class AnonymizeTest extends SapphireTest
 
     public function testCustomConfig()
     {
-        Anonymize::config()->__set('anonymize_config', 'silverstripe-anonymizer/tests/anonymize_test_config.yml');
+        Anonymize::config()->__set('anonymize_config', 'tests/anonymize_test_config.yml');
         $anonymize = Injector::inst()->get(Anonymize::class);
         $record1 = AnonymizeTestClass::get()->first();
         $this->assertNotNull($record1);
