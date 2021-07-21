@@ -6,6 +6,8 @@ use SilverStripe\ORM\DataObject;
 
 class AnonymizeTestClass extends DataObject
 {
+    private static $table_name = 'AnonymizeTestClass';
+
     private static $db = [
         'StringField' => 'Varchar(50)',
         'Email' => 'Varchar(50)',
